@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const app = express();
 require('dotenv').config();
+const jwt = require('jsonwebtoken');
 const port = process.env.PORT || 3000;
 
 
@@ -28,9 +29,25 @@ async function run() {
         // Send a ping to confirm a successful connection
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
+
+        const database = client.db("justMusic");
+        // user Database table
+        const users = database.collection("users");
+
+        // set user to database 
+        app.post('/setuser', async(req, res) => {
+            const user = req.body;
+            const query = {email: user.email};
+            const find = await users.findOne(query);
+            if(find){
+                return;
+            }
+            const result = await users.insertOne(user);
+            res.send(result);
+        })
     } finally {
         // Ensures that the client will close when you finish/error
-        await client.close();
+        // await client.close();
     }
 }
 run().catch(console.dir);
