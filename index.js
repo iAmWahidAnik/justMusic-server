@@ -51,11 +51,36 @@ async function run() {
         const database = client.db("justMusic");
         // user Database table
         const users = database.collection("users");
+        // classes database table 
+        const classes = database.collection("classes");
+
 
         app.post('/jwt', (req, res) => {
             const userEmail = req.body;
             const token = jwt.sign(userEmail, process.env.ACCESS_TOKEN, { expiresIn: '24h' });
             res.send({ token })
+        })
+
+        // check user role 
+        app.get('/users/checkrole/:email', async (req, res) => {
+            const email = req.params.email;
+            const query = { email: email };
+            const found = await users.findOne(query);
+            // console.log(found);
+            if (found) {
+                const role = found.role;
+                res.send(role);
+            }
+            else {
+                res.status(404).send({ error: true, message: 'user not found' })
+            }
+        })
+
+        // add new class to database
+        app.post('/addclass', async(req, res) => {
+            const newClass = req.body;
+            const result = await classes.insertOne(newClass);
+            res.send(result);
         })
 
         // set user to database 
