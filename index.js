@@ -83,6 +83,16 @@ async function run() {
             res.send(result);
         })
 
+        // get class by instructor
+        app.get('/classes', async(req, res) => {
+            const email = req.query.email;
+            // console.log(email);
+            const query = {instructorEmail: email};
+            const result = await classes.find(query).toArray();
+            // console.log(result);
+            res.send(result)
+        })
+
         // set user to database 
         app.post('/setuser', async (req, res) => {
             const user = req.body;
