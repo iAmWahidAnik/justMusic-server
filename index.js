@@ -6,7 +6,7 @@ const jwt = require('jsonwebtoken');
 const port = process.env.PORT || 3000;
 
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.6rjh1tl.mongodb.net/?retryWrites=true&w=majority`;
 
 
@@ -76,18 +76,56 @@ async function run() {
             }
         })
 
-        // add new class to database
-        app.post('/addclass', async(req, res) => {
+        // add new class to database - instructor
+        app.post('/addclass', async (req, res) => {
             const newClass = req.body;
             const result = await classes.insertOne(newClass);
             res.send(result);
         })
 
+        // get all classes - admin 
+        app.get('/allclass', async (req, res) => {
+            const result = await classes.find().toArray();
+            res.send(result);
+        })
+
+        // update class status - admin 
+        app.patch('/updatestatus/:id', async (req, res) => {
+            const id = req.params.id;
+            const status = req.query.status;
+            const filter = { _id: new ObjectId(id) }
+
+            const updateClass = {
+                $set: {
+                    status: status
+                },
+            };
+
+            const result = await classes.updateOne(filter, updateClass);
+            res.send(result);
+        })
+
+        // update feedback - admin 
+        app.patch('/updatefb', async(req, res) => {
+            const id = req.query.id;
+            const feedback = req.body;
+            const filter = { _id: new ObjectId(id) }
+
+            const updateClass = {
+                $set: {
+                    feedback: feedback.value
+                },
+            };
+
+            const result = await classes.updateOne(filter, updateClass);
+            res.send(result);
+        })
+
         // get class by instructor
-        app.get('/classes', async(req, res) => {
+        app.get('/classes', async (req, res) => {
             const email = req.query.email;
             // console.log(email);
-            const query = {instructorEmail: email};
+            const query = { instructorEmail: email };
             const result = await classes.find(query).toArray();
             // console.log(result);
             res.send(result)
