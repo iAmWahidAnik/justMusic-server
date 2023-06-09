@@ -89,6 +89,12 @@ async function run() {
             res.send(result);
         })
 
+        // get all users - admin 
+        app.get('/allusers', async(req, res) => {
+            const result = await users.find().toArray();
+            res.send(result);
+        })
+
         // update class status - admin 
         app.patch('/updatestatus/:id', async (req, res) => {
             const id = req.params.id;
@@ -118,6 +124,22 @@ async function run() {
             };
 
             const result = await classes.updateOne(filter, updateClass);
+            res.send(result);
+        })
+
+        //update user role - admin
+        app.patch('/updaterole', async(req, res) => {
+            const id = req.query.id;
+            const role = req.body;
+            const filter = { _id: new ObjectId(id) };
+
+            const updateUser = {
+                $set: {
+                    feedback: role
+                },
+            };
+
+            const result = await users.updateOne(filter, updateUser);
             res.send(result);
         })
 
