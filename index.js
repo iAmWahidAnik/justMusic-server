@@ -156,22 +156,43 @@ async function run() {
         })
 
         //select class - student
-        app.post('/selectclass', async(req, res) => {
+        app.post('/selectclass', async (req, res) => {
             // const id = req.query.id;
             const selectedClass = req.body;
-            const result = await studentClasses.insertOne(selectedClass);
-            res.send(result)
+            const id = selectedClass.classId;
+            const query = { classId: id };
+            const find = await studentClasses.findOne(query)
+            console.log(find);
+            if (find) {
+                return res.send({ matched: true })
+            }
+            else {
+                const result = await studentClasses.insertOne(selectedClass);
+                res.send(result)
+            }
+        })
+
+        //my selected classes - student
+        app.get('/myselectedclass', async (req, res) => {
+            const filter = { paymentStatus: 'pending' }
+            const result = await studentClasses.find(filter).toArray();
+            const ids = result.map(item => new ObjectId(item.classId));
+            console.log(ids);
+            const query = { _id: { $in: ids } };
+            const finalResult = await classes.find(query).toArray();
+
+            res.send(finalResult);
         })
 
         // popular class - home 
-        app.get('/popularclass', async(req, res) => {
+        app.get('/popularclass', async (req, res) => {
             // const maxEnrolledClasses = await classes.find().sort({ totalEnrolledStudent: -1 }).limit(2).toArray();
             const query = [
                 { $match: { status: "approved" } },
                 { $sort: { totalEnrolledStudent: -1 } },
                 { $limit: 2 }
-              ];
-            const result = await classes.aggregate(query).toArray();  
+            ];
+            const result = await classes.aggregate(query).toArray();
             res.send(result);
         })
 
