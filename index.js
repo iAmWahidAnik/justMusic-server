@@ -53,6 +53,8 @@ async function run() {
         const users = database.collection("users");
         // classes database table 
         const classes = database.collection("classes");
+        // student selected class database table 
+        const studentClasses = database.collection("studentClasses");
 
 
         app.post('/jwt', (req, res) => {
@@ -90,7 +92,7 @@ async function run() {
         })
 
         // get all users - admin 
-        app.get('/allusers', async(req, res) => {
+        app.get('/allusers', async (req, res) => {
             const result = await users.find().toArray();
             res.send(result);
         })
@@ -112,7 +114,7 @@ async function run() {
         })
 
         // update feedback - admin 
-        app.patch('/updatefb', async(req, res) => {
+        app.patch('/updatefb', async (req, res) => {
             const id = req.query.id;
             const feedback = req.body;
             const filter = { _id: new ObjectId(id) }
@@ -128,14 +130,14 @@ async function run() {
         })
 
         //update user role - admin
-        app.patch('/updaterole', async(req, res) => {
+        app.patch('/updaterole', async (req, res) => {
             const id = req.query.id;
-            const role = req.body;
+            const update = req.body;
             const filter = { _id: new ObjectId(id) };
 
             const updateUser = {
                 $set: {
-                    feedback: role
+                    role: update.role
                 },
             };
 
@@ -143,7 +145,7 @@ async function run() {
             res.send(result);
         })
 
-        // get class by instructor
+        // get class by - instructor
         app.get('/classes', async (req, res) => {
             const email = req.query.email;
             // console.log(email);
@@ -151,6 +153,26 @@ async function run() {
             const result = await classes.find(query).toArray();
             // console.log(result);
             res.send(result)
+        })
+
+        //select class - student
+        app.post('/selectclass', async(req, res) => {
+            // const id = req.query.id;
+            const selectedClass = req.body;
+            const result = await studentClasses.insertOne(selectedClass);
+            res.send(result)
+        })
+
+        // popular class - home 
+        app.get('/popularclass', async(req, res) => {
+            // const maxEnrolledClasses = await classes.find().sort({ totalEnrolledStudent: -1 }).limit(2).toArray();
+            const query = [
+                { $match: { status: "approved" } },
+                { $sort: { totalEnrolledStudent: -1 } },
+                { $limit: 2 }
+              ];
+            const result = await classes.aggregate(query).toArray();  
+            res.send(result);
         })
 
         // set user to database 
