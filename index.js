@@ -160,12 +160,12 @@ async function run() {
 
         //select class - student
         app.post('/selectclass', async (req, res) => {
-            // const id = req.query.id;
+            const email = req.query.email;
             const selectedClass = req.body;
             const id = selectedClass.classId;
-            const query = { classId: id };
+            const query = { classId: id, studentEmail: email };
             const find = await studentClasses.findOne(query)
-            // console.log(find);
+            console.log(find);
             if (find) {
                 return res.send({ matched: true })
             }
@@ -177,8 +177,9 @@ async function run() {
 
         //delete selected class - student
         app.delete('/deletmyclass/:id', async (req, res) => {
+            const email = req.query.email;
             const id = req.params.id;
-            const query = { classId: id }
+            const query = { classId: id, studentEmail: email }
             const result = await studentClasses.deleteOne(query);
             // console.log(id);
             res.send(result);
@@ -232,6 +233,45 @@ async function run() {
             }
 
             const result = await studentClasses.updateOne(filter, updateInfo, options);
+            res.send(result)
+        })
+
+        //all instructors
+        app.get('/allinstructors', async(req, res) => {
+            const filter = {role: 'instructor'};
+            const result = await users.find(filter).toArray();
+            res.send(result);
+        })
+
+        //all classes
+        app.get('/allclasses', async(req, res) => {
+            const filter = {status: 'approved'}
+            const result = await classes.find(filter).toArray();
+            res.send(result)
+        })
+
+        //my enrolled class
+        app.get('/enrolledclass', async(req, res) => {
+            const email = req.query.email;
+            const filter = { studentEmail: email, paymentStatus: 'successful' }
+            const result = await studentClasses.find(filter).toArray();
+            const ids = result.map(item => new ObjectId(item.classId));
+            
+            const query = { _id: { $in: ids } };
+            const finalResult = await classes.find(query).toArray();
+
+            // const result = await studentClasses.find(filter).toArray();
+            // res.send(result)
+
+
+            res.send(finalResult);
+        })
+
+        //my payment history
+        app.get('/payhistory', async(req, res) => {
+            const email = req.query.email;
+            const filter = { studentEmail: email, paymentStatus: 'successful' }
+            const result = await studentClasses.find(filter).toArray();
             res.send(result)
         })
 
