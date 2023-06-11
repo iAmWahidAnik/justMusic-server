@@ -237,26 +237,26 @@ async function run() {
         })
 
         //all instructors
-        app.get('/allinstructors', async(req, res) => {
-            const filter = {role: 'instructor'};
+        app.get('/allinstructors', async (req, res) => {
+            const filter = { role: 'instructor' };
             const result = await users.find(filter).toArray();
             res.send(result);
         })
 
         //all classes
-        app.get('/allclasses', async(req, res) => {
-            const filter = {status: 'approved'}
+        app.get('/allclasses', async (req, res) => {
+            const filter = { status: 'approved' }
             const result = await classes.find(filter).toArray();
             res.send(result)
         })
 
         //my enrolled class
-        app.get('/enrolledclass', async(req, res) => {
+        app.get('/enrolledclass', async (req, res) => {
             const email = req.query.email;
             const filter = { studentEmail: email, paymentStatus: 'successful' }
             const result = await studentClasses.find(filter).toArray();
             const ids = result.map(item => new ObjectId(item.classId));
-            
+
             const query = { _id: { $in: ids } };
             const finalResult = await classes.find(query).toArray();
 
@@ -268,7 +268,7 @@ async function run() {
         })
 
         //my payment history
-        app.get('/payhistory', async(req, res) => {
+        app.get('/payhistory', async (req, res) => {
             const email = req.query.email;
             const filter = { studentEmail: email, paymentStatus: 'successful' }
             const result = await studentClasses.find(filter).toArray();
@@ -285,6 +285,21 @@ async function run() {
             ];
             const result = await classes.aggregate(query).toArray();
             res.send(result);
+        })
+
+        //popular instructor - home
+        app.get('/popularinstructor', async (req, res) => {
+            const query = [
+                { $match: { status: "approved" } },
+                { $sort: { totalEnrolledStudent: -1 } },
+                { $limit: 2 }
+            ];
+            const result = await classes.aggregate(query).toArray();
+
+            const emails = result.map(item => item.instructorEmail);
+            const queryFinal = { email: { $in: emails } };
+            const finalResult = await users.find(queryFinal).toArray();
+            res.send(finalResult)
         })
 
         // set user to database 
