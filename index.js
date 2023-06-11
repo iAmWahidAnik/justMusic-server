@@ -5,6 +5,9 @@ require('dotenv').config();
 const jwt = require('jsonwebtoken');
 const port = process.env.PORT || 3000;
 
+//stripe payment key
+const stripe = require("stripe")(process.env.PAYMENT_KEY);
+
 
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.6rjh1tl.mongodb.net/?retryWrites=true&w=majority`;
@@ -162,7 +165,7 @@ async function run() {
             const id = selectedClass.classId;
             const query = { classId: id };
             const find = await studentClasses.findOne(query)
-            console.log(find);
+            // console.log(find);
             if (find) {
                 return res.send({ matched: true })
             }
@@ -172,16 +175,64 @@ async function run() {
             }
         })
 
+        //delete selected class - student
+        app.delete('/deletmyclass/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { classId: id }
+            const result = await studentClasses.deleteOne(query);
+            // console.log(id);
+            res.send(result);
+        })
+
         //my selected classes - student
         app.get('/myselectedclass', async (req, res) => {
-            const filter = { paymentStatus: 'pending' }
+            const email = req.query.email;
+            const filter = { paymentStatus: 'pending', studentEmail: email }
             const result = await studentClasses.find(filter).toArray();
             const ids = result.map(item => new ObjectId(item.classId));
-            console.log(ids);
+            // console.log(ids);
             const query = { _id: { $in: ids } };
             const finalResult = await classes.find(query).toArray();
 
             res.send(finalResult);
+        })
+
+        //after payment - student
+        app.patch('/paymentsuccess', async (req, res) => {
+            const classId = req.query.classId;
+            const filterClass = { _id: new ObjectId(classId) }
+            const findClass = await classes.findOne(filterClass)
+            const afterMathOne = findClass.totalEnrolledStudent + 1;
+            const afterMathTwo = findClass.availableSeat - 1;
+            const updateClass = {
+                $set: {
+                    totalEnrolledStudent: afterMathOne,
+                    availableSeat: afterMathTwo
+                },
+            }
+            const resultClass = await classes.updateOne(filterClass, updateClass);
+
+
+            const email = req.query.email;
+            const paymentInfo = req.body;
+            const paymentStatus = paymentInfo.paymentStatus;
+            const paymentDate = paymentInfo.paymentDate;
+            const paymentId = paymentInfo.transactionId;
+
+            const filter = { classId: classId, studentEmail: email }
+
+            const options = { upsert: true };
+
+            const updateInfo = {
+                $set: {
+                    paymentStatus: paymentStatus,
+                    paymentDate,
+                    paymentId
+                },
+            }
+
+            const result = await studentClasses.updateOne(filter, updateInfo, options);
+            res.send(result)
         })
 
         // popular class - home 
@@ -206,6 +257,23 @@ async function run() {
             }
             const result = await users.insertOne(user);
             res.send(result);
+        })
+
+        //payment zone
+        //create payment intent
+        app.post('/paymentintent', async (req, res) => {
+            const { price } = req.body;
+            const amount = price * 100;
+
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: "usd",
+                payment_method_types: ['card']
+            })
+
+            res.send({
+                clientSecret: paymentIntent.client_secret
+            })
         })
     } finally {
         // Ensures that the client will close when you finish/error
