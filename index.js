@@ -21,6 +21,7 @@ app.use(cors())
 const verifyJWT = (req, res, next) => {
     const authorization = req.headers.authorization;
     if (!authorization) {
+        console.log('problem here');
         return res.status(401).send({ error: true, message: 'unauthorized access' });
     }
     //bearer token 
@@ -67,14 +68,17 @@ async function run() {
         })
 
         // check user role 
-        app.get('/users/checkrole/:email', async (req, res) => {
+        app.get('/users/checkrole/:email', verifyJWT, async (req, res) => {
             const email = req.params.email;
+            if(req.decoded.email !== email){
+                return res.send({error: true, message: 'Unauthorized Access'})
+            }
             const query = { email: email };
             const found = await users.findOne(query);
             // console.log(found);
             if (found) {
                 const role = found.role;
-                res.send(role);
+                res.send({role: role});
             }
             else {
                 res.status(404).send({ error: true, message: 'user not found' })
@@ -82,26 +86,26 @@ async function run() {
         })
 
         // add new class to database - instructor
-        app.post('/addclass', async (req, res) => {
+        app.post('/addclass', verifyJWT, async (req, res) => {
             const newClass = req.body;
             const result = await classes.insertOne(newClass);
             res.send(result);
         })
 
         // get all classes - admin 
-        app.get('/allclass', async (req, res) => {
+        app.get('/allclass', verifyJWT, async (req, res) => {
             const result = await classes.find().toArray();
             res.send(result);
         })
 
         // get all users - admin 
-        app.get('/allusers', async (req, res) => {
+        app.get('/allusers', verifyJWT, async (req, res) => {
             const result = await users.find().toArray();
             res.send(result);
         })
 
         // update class status - admin 
-        app.patch('/updatestatus/:id', async (req, res) => {
+        app.patch('/updatestatus/:id', verifyJWT, async (req, res) => {
             const id = req.params.id;
             const status = req.query.status;
             const filter = { _id: new ObjectId(id) }
@@ -117,7 +121,7 @@ async function run() {
         })
 
         // update feedback - admin 
-        app.patch('/updatefb', async (req, res) => {
+        app.patch('/updatefb', verifyJWT, async (req, res) => {
             const id = req.query.id;
             const feedback = req.body;
             const filter = { _id: new ObjectId(id) }
@@ -133,7 +137,7 @@ async function run() {
         })
 
         //update user role - admin
-        app.patch('/updaterole', async (req, res) => {
+        app.patch('/updaterole', verifyJWT, async (req, res) => {
             const id = req.query.id;
             const update = req.body;
             const filter = { _id: new ObjectId(id) };
@@ -149,7 +153,7 @@ async function run() {
         })
 
         // get class by - instructor
-        app.get('/classes', async (req, res) => {
+        app.get('/classes', verifyJWT, async (req, res) => {
             const email = req.query.email;
             // console.log(email);
             const query = { instructorEmail: email };
@@ -159,7 +163,7 @@ async function run() {
         })
 
         //select class - student
-        app.post('/selectclass', async (req, res) => {
+        app.post('/selectclass', verifyJWT, async (req, res) => {
             const email = req.query.email;
             const selectedClass = req.body;
             const id = selectedClass.classId;
@@ -176,8 +180,13 @@ async function run() {
         })
 
         //delete selected class - student
-        app.delete('/deletmyclass/:id', async (req, res) => {
+        app.delete('/deletmyclass/:id', verifyJWT, async (req, res) => {
             const email = req.query.email;
+            console.log(req.decoded.email);
+            if(req.decoded.email !== email){
+                console.log('vuaaaa');
+                return
+            }
             const id = req.params.id;
             const query = { classId: id, studentEmail: email }
             const result = await studentClasses.deleteOne(query);
@@ -186,7 +195,7 @@ async function run() {
         })
 
         //my selected classes - student
-        app.get('/myselectedclass', async (req, res) => {
+        app.get('/myselectedclass', verifyJWT, async (req, res) => {
             const email = req.query.email;
             const filter = { paymentStatus: 'pending', studentEmail: email }
             const result = await studentClasses.find(filter).toArray();
@@ -199,7 +208,7 @@ async function run() {
         })
 
         //after payment - student
-        app.patch('/paymentsuccess', async (req, res) => {
+        app.patch('/paymentsuccess', verifyJWT, async (req, res) => {
             const classId = req.query.classId;
             const filterClass = { _id: new ObjectId(classId) }
             const findClass = await classes.findOne(filterClass)
@@ -250,8 +259,8 @@ async function run() {
             res.send(result)
         })
 
-        //my enrolled class
-        app.get('/enrolledclass', async (req, res) => {
+        //my enrolled class - student
+        app.get('/enrolledclass', verifyJWT, async (req, res) => {
             const email = req.query.email;
             const filter = { studentEmail: email, paymentStatus: 'successful' }
             const result = await studentClasses.find(filter).toArray();
@@ -268,10 +277,17 @@ async function run() {
         })
 
         //my payment history
-        app.get('/payhistory', async (req, res) => {
+        app.get('/payhistory', verifyJWT, async (req, res) => {
             const email = req.query.email;
-            const filter = { studentEmail: email, paymentStatus: 'successful' }
-            const result = await studentClasses.find(filter).toArray();
+            // const filter = { studentEmail: email, paymentStatus: 'successful', paymentDate: -1 }
+            // const result = await studentClasses.find(filter).toArray();
+
+            const query = [
+                { $match: { studentEmail: email, paymentStatus: 'successful' } },
+                { $sort: { paymentDate: -1 } }
+            ];
+            const result = await studentClasses.aggregate(query).toArray();
+
             res.send(result)
         })
 
@@ -281,7 +297,7 @@ async function run() {
             const query = [
                 { $match: { status: "approved" } },
                 { $sort: { totalEnrolledStudent: -1 } },
-                { $limit: 2 }
+                { $limit: 6 }
             ];
             const result = await classes.aggregate(query).toArray();
             res.send(result);
@@ -292,7 +308,7 @@ async function run() {
             const query = [
                 { $match: { status: "approved" } },
                 { $sort: { totalEnrolledStudent: -1 } },
-                { $limit: 2 }
+                { $limit: 6 }
             ];
             const result = await classes.aggregate(query).toArray();
 
